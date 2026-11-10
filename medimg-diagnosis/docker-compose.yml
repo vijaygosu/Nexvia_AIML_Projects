@@ -1,0 +1,25 @@
+services:
+  orthanc:
+    image: jodogne/orthanc-plugins:1.12.4
+    ports: ["8042:8042", "4242:4242"]
+    volumes:
+      - ./orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+      - orthanc-db:/var/lib/orthanc/db
+  service:
+    build: { context: ., dockerfile: Dockerfile.service }
+    environment:
+      ORTHANC_URL: http://orthanc:8042
+      MODEL_CKPT: /models/densenet121_nih.pt   # missing file => clearly flagged UNTRAINED-DEMO model
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+    volumes: ["./models:/models:ro", "service-data:/data"]
+    ports: ["8000:8000"]
+    depends_on: [orthanc]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 6
+  viewer:
+    build: ./viewer
+    ports: ["8080:80"]
+    depends_on: [service]
+volumes: { orthanc-db: {}, service-data: {} }

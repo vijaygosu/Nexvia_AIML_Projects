@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: fraud-api}
+spec:
+  replicas: 1                             # 1 replica: per-account state is held in-process (memory backend)
+  selector: {matchLabels: {app: fraud-api}}
+  template:
+    metadata: {labels: {app: fraud-api}}
+    spec:
+      initContainers:                     # seed the shared volume with the baked-in model on first start
+        - name: seed-models
+          image: fraud-api:latest
+          imagePullPolicy: Never
+          command: ["sh", "-c", "[ -d /data/models ] || cp -r /app/models /data/models"]
+          volumeMounts: [{name: data, mountPath: /data}]
+      containers:
+        - name: api
+          image: fraud-api:latest
+          imagePullPolicy: Never
+          ports: [{containerPort: 8000}]
+          env:
+            - {name: KAFKA_BOOTSTRAP, value: "kafka:9092"}
+            - {name: MODEL_DIR, value: /data/models}
+            - {name: DB_PATH, value: /data/cases.db}
+            - {name: REPORT_DIR, value: /data/reports}
+            - {name: STATE_BACKEND, value: memory}   # "feast" needs the feature_repo seeded (see README)
+          readinessProbe: {httpGet: {path: /health, port: 8000}, initialDelaySeconds: 5, periodSeconds: 5}
+          resources: {requests: {memory: 512Mi, cpu: 250m}}
+          volumeMounts: [{name: data, mountPath: /data}]
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: fraud-data}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: fraud-api}
+spec:
+  type: NodePort
+  selector: {app: fraud-api}
+  ports: [{port: 8000, targetPort: 8000, nodePort: 30800}]

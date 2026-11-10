@@ -1,0 +1,14 @@
+# Outside k8s/ top level so `kubectl apply -f k8s/` does not start it; `make k8s-demo` runs it on demand.
+apiVersion: batch/v1
+kind: Job
+metadata: {name: fraud-producer}
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: producer
+          image: fraud-api:latest
+          imagePullPolicy: Never
+          command: ["python", "-m", "fraud.service.producer", "--bootstrap", "kafka:9092", "--rate", "100", "--limit", "10000"]

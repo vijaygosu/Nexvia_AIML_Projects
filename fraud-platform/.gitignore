@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+mlruns/
+mlflow.db
+data/*.db
+data/*.parquet
+feature_repo/data/
+monitoring/reports/*.html
+.venv/

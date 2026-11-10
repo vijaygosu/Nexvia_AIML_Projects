@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+service_data/
+/data/raw
+/data/processed
+/data/msd
+/models/*.pt
+/reports/failure_cases
+/reports/calibration.png
+viewer/node_modules/
+viewer/dist/
+.env

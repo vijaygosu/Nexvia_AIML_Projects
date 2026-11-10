@@ -1,0 +1,30 @@
+stages:
+  prepare:
+    cmd: >-
+      python -m medimg.data.prepare --raw-dir data/raw/nih --out-dir data/processed
+      --labels ${prepare.labels} --patient-fraction ${prepare.patient_fraction}
+      --resize ${prepare.resize} --val-pct ${prepare.val_pct} --test-pct ${prepare.test_pct} --seed ${prepare.seed}
+    deps: [data/raw/nih, src/medimg/data/prepare.py, src/medimg/data/splits.py]
+    params: [prepare]
+    outs: [data/processed]
+    metrics: [data/processed/stats.json: {cache: false}]
+  train_classifier:
+    cmd: >-
+      python -m medimg.train.train_classifier --manifest data/processed/manifest.csv --labels ${prepare.labels}
+      --epochs ${train.epochs} --batch-size ${train.batch_size} --lr ${train.lr}
+      --out models/densenet121_nih.pt --metrics-out reports/train_metrics.json
+    deps: [data/processed, src/medimg/train/train_classifier.py, src/medimg/models/classifier.py]
+    params: [train]
+    outs: [models/densenet121_nih.pt]
+    metrics: [reports/train_metrics.json: {cache: false}]
+  evaluate:
+    cmd: python -m medimg.train.evaluate --ckpt models/densenet121_nih.pt --manifest data/processed/manifest.csv
+    deps: [models/densenet121_nih.pt, data/processed, src/medimg/train/evaluate.py]
+    outs: [reports/failure_cases, reports/calibration.png]
+    metrics: [reports/eval_metrics.json: {cache: false}]
+  train_segmentation:
+    cmd: python -m medimg.train.train_segmentation --task ${seg.task} --epochs ${seg.epochs}
+    deps: [src/medimg/train/train_segmentation.py, src/medimg/models/segmentation.py]
+    params: [seg]
+    outs: [models/unet3d_spleen.pt]
+    metrics: [reports/seg_metrics.json: {cache: false}]

@@ -1,0 +1,24 @@
+# Every 10 min: compare the live scored window with the training reference (Evidently/PSI).
+# If drift share >= threshold -> retrain -> POST /admin/reload so the API hot-loads the new model.
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: fraud-drift-check}
+spec:
+  schedule: "*/10 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: drift
+              image: fraud-api:latest
+              imagePullPolicy: Never
+              command: ["python", "-m", "fraud.drift", "--db", "/data/cases.db", "--retrain",
+                        "--reload-url", "http://fraud-api:8000/admin/reload",
+                        "--retrain-cmd", "python -m fraud.train --data synthetic --model xgboost --gnn ring --out /data/models --seed 11 --run-name drift-retrain"]
+              env: [{name: REPORT_DIR, value: /data/reports}, {name: MLFLOW_TRACKING_URI, value: "http://mlflow:5000"}]
+              volumeMounts: [{name: data, mountPath: /data}]
+          volumes:
+            - {name: data, persistentVolumeClaim: {claimName: fraud-data}}
